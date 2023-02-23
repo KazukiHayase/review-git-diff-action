@@ -1,6 +1,7 @@
 # Review Git Diff Action
 
 This GitHub Action reviews the Git diff and comments on the Pull Request based on the number of changes found.
+
 This only works on `pull_request` workflow events.
 
 # Usage
@@ -31,7 +32,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: KazukiHayase/review-git-diff-action
+      - uses: KazukiHayase/review-git-diff-action@v1.0.0
         with:
           threshold: 100
           message: "⚠️  Git diff exceeds 100, please consider if PR can be split."

@@ -1,0 +1,59 @@
+name: Review Git Diff Action
+
+description: This GitHub Action reviews the Git diff and comments on the Pull Request based on the number of changes found.
+
+author: KazukiHayase
+
+branding:
+  icon: file
+  color: orange
+
+inputs:
+  github-token:
+    description: Secret GitHub API token used to make API requests.
+    default: ${{ github.token }}
+    required: false
+  threshold:
+    description: The number of diff lines.
+    required: true 
+  message:
+    description: The message to comment when Git diff exceeds a threshold.
+    required: true
+
+runs:
+  using: composite
+  steps: 
+    - name: Validate inputs
+      run: |
+        [[ "${{ inputs.threshold }}" ]] || { echo "threshold input is empty" ; exit 1; }
+        [[ "${{ inputs.message }}" ]] || { echo "message input is empty" ; exit 1; }
+      shell: bash
+
+    - name: Calculate Git diff
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        diff=$(
+          git diff ${BASE_SHA}...${HEAD_SHA} --numstat | 
+          awk '{ add+=$1; del+=$2 } END { print add+del }'
+        )
+        echo "GIT_DIFF=$diff" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Evaluate Git diff
+      id: evaluate_git_diff
+      run: |
+        diff=${{ env.GIT_DIFF }}
+        threshold=${{ inputs.threshold }}
+        result=$([ "$(expr $diff \> $threshold)" = 1 ] && echo "true" || echo "false")
+        echo "should_post_comment=$result" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Post comments
+      if: steps.evaluate_git_diff.outputs.should_post_comment == 'true'
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        URL: ${{ github.event.pull_request.html_url }}
+      run: gh pr comment $URL -b "${{ inputs.message }}"
+      shell: bash
